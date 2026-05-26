@@ -1,0 +1,19 @@
+version: "2"
+
+formatters:
+  enable:
+    - golines
+    - gci
+
+  settings:
+    golines:
+      max-len: 90
+      tab-len: 4
+      shorten-comments: true
+      reformat-tags: false
+      chain-split-dots: true
+
+linters:
+  exclusions:
+    presets:
+      - std-error-handling
