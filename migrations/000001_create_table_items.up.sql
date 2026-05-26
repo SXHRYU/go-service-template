@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS items (
+    id SERIAL PRIMARY KEY NOT NULL,
+    content TEXT NOT NULL,
+);
