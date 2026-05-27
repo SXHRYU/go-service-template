@@ -24,7 +24,7 @@ func ToServiceOwnerItems(
 
 func ToServiceItem(item *repositories.Item) *Item {
 	return &Item{
-		Id:        item.Id,
-		Content:   item.Content,
+		Id:      item.Id,
+		Content: item.Content,
 	}
 }
