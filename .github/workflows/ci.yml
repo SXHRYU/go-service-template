@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build CI image
+        run: docker build --target ci -t app:ci .
+
+      - name: Save CI image
+        run: docker save app:ci | gzip > app-ci.tar.gz
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-ci-image
+          path: app-ci.tar.gz
+          retention-days: 1
+
+  lint:
+    name: Lint
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Docker image
+        uses: actions/download-artifact@v8
+        with:
+          name: app-ci-image
+
+      - name: Load Docker image
+        run: gunzip -c app-ci.tar.gz | docker load
+
+      - name: Run golangci-lint
+        run: docker run --rm app:ci golangci-lint run
+
+  format:
+    name: Format
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Docker image
+        uses: actions/download-artifact@v8
+        with:
+          name: app-ci-image
+
+      - name: Load Docker image
+        run: gunzip -c app-ci.tar.gz | docker load
+
+      - name: Check formatting
+        run: docker run --rm app:ci golangci-lint fmt --diff
+
+  test:
+    name: Tests
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Docker image
+        uses: actions/download-artifact@v8
+        with:
+          name: app-ci-image
+
+      - name: Load Docker image
+        run: gunzip -c app-ci.tar.gz | docker load
+
+      - name: Run tests
+        run: docker run --rm app:ci go test ./...
+
+  build-and-publish:
+    name: Build and publish production image
+    needs:
+      - lint
+      - format
+      - test
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build production image
+        run: |
+          docker build \
+            --target prod \
+            --tag ghcr.io/${{ github.repository }}:${{ github.sha }} \
+            .
+
+      - name: Push production image
+        run: |
+          docker push \
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
